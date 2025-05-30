@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import express from "express";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -17,7 +18,7 @@ const databaseUrl = args[0];
 
 const toolRegistry = new ToolRegistry();
 
-const server = new Server(
+const server = new McpServer(
   {
     name: "mongodb-mcp",
     version: "0.1.0",
@@ -70,15 +71,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
-  try {
-    await connectToMongoDB(databaseUrl);
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("MongoDB MCP server running on stdio");
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
+  await connectToMongoDB(databaseUrl);
+
+  const app = express();
+  const transport = new StreamableHTTPServerTransport();
+
+  // POST for streaming requests
+  app.post("/mcp", express.json(), async (req, res) => {
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  // GET for SSE clients
+  app.get("/mcp", async (req, res) => {
+    await transport.handleRequest(req, res);
+  });
+
+  const port = process.env.PORT || 3333;
+  app.listen(port, () => {
+    console.log(`MongoDB MCP HTTP server running at http://localhost:${port}/mcp`);
+  });
 }
 
 process.on("SIGINT", async () => {
