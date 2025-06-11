@@ -9,12 +9,11 @@ import {
 import { connectToMongoDB, closeMongoDB } from "./mongodb/client.js";
 import { ToolRegistry } from "./tools/registry.js";
 
-const args = process.argv.slice(2);
-if (args.length === 0) {
-  console.error("Please provide a MongoDB connection URL");
+const databaseUrl = process.env.MONGO_URI;
+if (!databaseUrl) {
+  console.error("MONGO_URI environment variable is not set");
   process.exit(1);
 }
-const databaseUrl = args[0];
 
 const toolRegistry = new ToolRegistry();
 
@@ -76,12 +75,10 @@ async function runServer() {
   const app = express();
   const transport = new StreamableHTTPServerTransport();
 
-  // POST for streaming requests
   app.post("/mcp", express.json(), async (req, res) => {
     await transport.handleRequest(req, res, req.body);
   });
 
-  // GET for SSE clients
   app.get("/mcp", async (req, res) => {
     await transport.handleRequest(req, res);
   });
