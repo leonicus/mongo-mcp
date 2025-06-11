@@ -1,24 +1,15 @@
-# Use the official Node.js 18 LTS image
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 
-# Set the working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install dependencies without triggering prepare/build
+RUN npm install --ignore-scripts
 
-# Copy the rest of the application
+# Now copy the full codebase (tsconfig.json, src/, etc.)
 COPY . .
 
-# Build the TypeScript code
+# Manually build after source files are in place
 RUN npm run build
-
-# Expose the port the app runs on
-EXPOSE 3333
-
-# Define the default command to run the app
-CMD ["node", "dist/index.js"]
-
